@@ -1,0 +1,18 @@
+Blue    Frequency       5
+Blue    Snowdon         Jean-Talon          9
+Blue    Jean-Talon      Saint-Michel        5
+
+Yellow  Frequency       5
+Yellow  Berri-UQAM      Longueil            5
+
+Orange  Frequency       4
+Orange  Côte-Vertu      Snowdon             8
+Orange  Snowdon         Lionel-Groulx       7
+Orange  Lionel-Groulx   Berri-UQAM          9
+Orange  Berri-UQAM      Jean-Talon          8
+Orange  Jean-Talon      Montmorency         12
+
+Green   Frequency       5
+Green   Angrignon       Lionel-Groulx       10
+Green   Lionel-Groulx   Berri-UQAM          9
+Green   Berri-UQAM      Honoré-Beaugrand    15
