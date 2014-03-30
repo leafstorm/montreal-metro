@@ -1,8 +1,10 @@
 This is what I'm working on for my PyCon talk.
 
-Right now it just reads a textual system description and draws a map,
-because I was fighting kernel panics while I was trying to write this.
+To find the fastest paths through the Métro:
 
-To draw a map of the Métro, run:
+    python challenge.py montreal.txt
 
-    python challenge.py montreal.txt | dot -Tpng -omontreal.png
+To draw a graph of the Métro, run:
+
+    python challenge.py montreal.txt --graph | dot -Tpng -omontreal.png
+
