@@ -169,6 +169,17 @@ class PathFinder:
             data['target'] for n1, n2, data in graph.edges(data=True) if 'target' in data
         )
 
+        # Precalculate edge ordering
+        # Put RIDE edges before TRANSFER edges, then sort by weight
+        self.outbound_edges = {}
+        ranks = {RIDE: 0, TRANSFER: 1}
+        edge_key = lambda e: (ranks[e[2]['action']], e[2]['weight'], e[0], e[1])
+
+        for node in graph:
+            edges = list(graph.out_edges((node,), data=True))
+            edges.sort(key=edge_key)
+            self.outbound_edges[node] = edges
+
         # Results
         self.minimum_time = None
         self.minimum_paths = []
@@ -179,7 +190,7 @@ class PathFinder:
 
         # Create some starting positions
         empty_path = Path((), frozenset(), 0, self.targets)
-        for node in self.graph:
+        for node in sorted(self.graph):
             self.queue.append((empty_path, node))
 
         # Recursively investigate
@@ -188,15 +199,14 @@ class PathFinder:
             self.investigate(path, at_node)
 
     def investigate(self, path, at_node):
-        options = list(self.graph.out_edges((at_node,), data=True))
-        current_time = path.time
+        options = self.outbound_edges[at_node]
 
         for edge in options:
             # Don't try a path if it's going to be longer than
             # our current minimum.
             if (
                 self.minimum_time is not None and
-                current_time + edge[2]['weight'] > self.minimum_time
+                path.time + edge[2]['weight'] > self.minimum_time
             ):
                 continue
 
