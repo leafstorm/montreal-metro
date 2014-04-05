@@ -9,7 +9,7 @@ import itertools
 import networkx as nx
 import pprint
 import sys
-from collections import namedtuple
+from collections import namedtuple, deque
 from unidecode import unidecode
 
 
@@ -158,76 +158,79 @@ def path_advance(path, edge):
 
 
 class PathFinder:
-    def __init__(self):
-        self.paths = []
-        self.known_minimum = None
+    def __init__(self, graph):
+        # State
+        self.has_run = False
+        self.queue = deque()
 
-    def found(self, path):
-        if self.known_minimum is None or path.time < self.known_minimum:
-            self.known_minimum = path.time
-            self.paths = [path]
-        elif path.time == self.known_minimum:
-            self.paths.append(path)
+        # Analyze the graph
+        self.graph = graph
+        self.targets = frozenset(
+            data['target'] for n1, n2, data in graph.edges(data=True) if 'target' in data
+        )
 
+        # Results
+        self.minimum_time = None
+        self.minimum_paths = []
 
-def bruteforce_paths(graph):
-    """
-    Uses a brute-force algorithm to search for all the possible paths.
-    """
-    # Find ALL THE TARGETS!
-    targets = frozenset(
-        data['target'] for n1, n2, data in graph.edges(data=True) if 'target' in data
-    )
+    def run(self):
+        if self.has_run:
+            raise RuntimeError("PathFinders are only usable once")
 
-    # Waste ALL THE MEMORY!
-    finder = PathFinder()
-    empty_path = Path((), frozenset(), 0, targets)
-    for node in graph:
-        bruteforce_recurse(graph, empty_path, node, finder)
+        # Create some starting positions
+        empty_path = Path((), frozenset(), 0, self.targets)
+        for node in self.graph:
+            self.queue.append((empty_path, node))
 
-    return finder.paths
+        # Recursively investigate
+        while len(self.queue) > 0:
+            path, at_node = self.queue.popleft()
+            self.investigate(path, at_node)
 
+    def investigate(self, path, at_node):
+        options = list(self.graph.out_edges((at_node,), data=True))
+        current_time = path.time
 
-def bruteforce_recurse(graph, path, node, finder):
-    """
-    Finds all the possible "next steps" for a particular path.
-    The algorithm we use is simple:
-
-    * Don't repeat edges.
-    * Don't change direction unless that's the only option.
-    * Try everything else.
-    """
-    options = list(graph.out_edges((node,), data=True))
-    current_time = path.time
-
-    for edge in options:
-        # (Don't try a path if it's going to be longer than our
-        # current minimum.)
-        if (finder.known_minimum is not None and
-                current_time + edge[2]['weight'] > finder.known_minimum):
-            continue
-
-        # Don't repeat edges.
-        if edge[:2] in path.used_edges:
-            continue
-
-        # Don't change direction unless that's the only option.
-        if path.edges and len(options) > 1:
-            prev_edge = path.edges[-1]
-            if prev_edge[0] == edge[1] and prev_edge[1] == edge[0]:
+        for edge in options:
+            # Don't try a path if it's going to be longer than
+            # our current minimum.
+            if (
+                self.minimum_time is not None and
+                current_time + edge[2]['weight'] > self.minimum_time
+            ):
                 continue
 
-        # Try it!
-        new_node = edge[1]
-        new_path = path_advance(path, edge)
-        if not new_path.targets_left:
-            # We win! This path gets us all the way through the metro.
-            # Add it to our success list!
-            print("Found a path that takes {} minutes!".format(new_path.time))
-            finder.found(new_path)
+            # Don't repeat edges.
+            if edge[:2] in path.used_edges:
+                continue
+
+            # Don't turn around unless it's our only option.
+            if path.edges and len(options) > 1:
+                prev_edge = path.edges[-1]
+                if prev_edge[0] == edge[1] and prev_edge[1] == edge[0]:
+                    continue
+
+            # Try it!
+            new_node = edge[1]
+            new_path = path_advance(path, edge)
+            if not new_path.targets_left:
+                # We win! This path gets us all the way through the metro.
+                # Add it to our success list!
+                self.found(new_path)
+            else:
+                # Keep following the path!
+                self.queue.append((new_path, new_node))
+
+    def found(self, path):
+        if self.minimum_time is None or path.time < self.minimum_time:
+            print("Found a path that takes {} minutes!".format(path.time))
+            self.minimum_time = path.time
+            self.minimum_paths = [path]
+        elif path.time == self.minimum_time:
+            print("Found another path that takes {} minutes!".format(path.time))
+            self.minimum_paths.append(path)
         else:
-            # Keep following the path!
-            bruteforce_recurse(graph, new_path, new_node, finder)
+            pass
 
 
 ###
@@ -245,8 +248,10 @@ if __name__ == '__main__':
     if command == '--graph':
         print(write_digraph_dot(digraph))
     elif command is None:
-        paths = bruteforce_paths(digraph)
-        for path in paths:
+        finder = PathFinder(digraph)
+        finder.run()
+
+        for path in finder.minimum_paths:
             print("In {} minutes:".format(path.time))
             for edge in path.edges:
                 if edge[2]['action'] == RIDE:
